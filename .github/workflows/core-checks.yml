@@ -43,4 +43,4 @@ jobs:
       - name: Build and type check
         run: |
           cd packages/core
-          bun run build:lib
+          bun run build:lib --ci

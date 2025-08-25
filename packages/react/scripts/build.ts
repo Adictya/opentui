@@ -33,6 +33,7 @@ const packageJson: PackageJson = JSON.parse(readFileSync(join(rootDir, "package.
 
 const args = process.argv.slice(2)
 const isDev = args.includes("--dev")
+const isCi = args.includes("--ci")
 
 const replaceLinks = (text: string): string => {
   return packageJson.homepage
@@ -104,9 +105,18 @@ const tscResult: SpawnSyncReturns<Buffer> = spawnSync("npx", ["tsc", "-p", tscon
 })
 
 if (tscResult.status !== 0) {
+  if (isCi) {
+    console.error("Error: TypeScript declaration generation failed")
+    process.exit(1)
+  }
   console.warn("Warning: TypeScript declaration generation failed")
 } else {
   console.log("TypeScript declarations generated")
+}
+
+if (isCi) {
+  console.log("CI mode detected, skipping post-build steps")
+  process.exit(0)
 }
 
 // Copy jsx runtime files

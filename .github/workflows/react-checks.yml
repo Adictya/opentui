@@ -42,9 +42,9 @@ jobs:
       - name: Build core package (required for react types)
         run: |
           cd packages/core
-          bun run build:lib
+          bun run build:lib --ci
 
       - name: Type check
         run: |
           cd packages/react
-          bun run build
+          bun run build --ci
