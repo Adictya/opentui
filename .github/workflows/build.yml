@@ -54,6 +54,8 @@ jobs:
         run: |
           cd packages/core
           bun run build:lib --ci
+        env:
+          FORCE_COLOR: 1
 
       - name: Cache core build
         uses: actions/cache/save@v3
@@ -89,6 +91,8 @@ jobs:
         run: |
           cd packages/react
           bun run build --ci
+        env:
+          FORCE_COLOR: 1
 
   # Build and type check Solid package
   build-solid:
@@ -118,3 +122,5 @@ jobs:
         run: |
           cd packages/solid
           bun run build --ci
+        env:
+          FORCE_COLOR: 1
