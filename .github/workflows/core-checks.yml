@@ -21,12 +21,13 @@ jobs:
           bun-version: latest
 
       - name: Check Prettier formatting
-        run: |
-          if ! bunx prettier --check packages/core; then
-            echo "❌ The following files have formatting issues:"
-            bunx prettier --list-different packages/core
-            exit 1
-          fi
+        run: bunx prettier --check packages/core
+        # run: |
+        #   if ! bunx prettier --check packages/core; then
+        #     echo "❌ The following files have formatting issues:"
+        #     bunx prettier --list-different packages/core
+        #     exit 1
+        #   fi
 
   core-build:
     name: Build and Type Check
