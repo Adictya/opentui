@@ -1,4 +1,4 @@
-name: Core Package Checks
+name: Core
 
 on:
   pull_request:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   core-prettier:
-    name: Core - Prettier Check
+    name: Prettier Check
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +19,7 @@ jobs:
         run: npx prettier --check packages/core
 
   core-build:
-    name: Core - Build and Type Check
+    name: Build and Type Check
     runs-on: ubuntu-latest
 
     steps:

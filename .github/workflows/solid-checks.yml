@@ -1,4 +1,4 @@
-name: Solid Package Checks
+name: Solid
 
 on:
   pull_request:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   solid-prettier:
-    name: Solid - Prettier Check
+    name: Prettier Check
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +19,7 @@ jobs:
         run: npx prettier --check packages/solid
 
   solid-build:
-    name: Solid - Build and Type Check
+    name: Build and Type Check
     runs-on: ubuntu-latest
 
     steps:

@@ -1,4 +1,4 @@
-name: React Package Checks
+name: React
 
 on:
   pull_request:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   react-prettier:
-    name: React - Prettier Check
+    name: Prettier Check
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +19,7 @@ jobs:
         run: npx prettier --check packages/react
 
   react-build:
-    name: React - Build and Type Check
+    name: Build and Type Check
     runs-on: ubuntu-latest
 
     steps:
