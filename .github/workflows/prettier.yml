@@ -1,14 +1,12 @@
-name: Prettier
+name: Format
 
 on:
   pull_request:
-    paths:
-      - "packages/core/**"
     branches: [main]
 
 jobs:
   prettier-core:
-    name: Core - Prettier Check
+    name: Prettier Check
     runs-on: ubuntu-latest
 
     steps:
@@ -21,4 +19,4 @@ jobs:
           bun-version: latest
 
       - name: Check Prettier formatting
-        run: bunx prettier --check packages/core
+        run: bunx prettier --check .
