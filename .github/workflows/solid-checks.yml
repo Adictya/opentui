@@ -21,7 +21,7 @@ jobs:
           bun-version: latest
 
       - name: Check Prettier formatting
-        run: bunx prettier --check packages/solid
+        run: bunx prettier --check --list-different packages/solid
 
   solid-build:
     name: Build and Type Check

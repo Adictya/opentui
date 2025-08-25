@@ -22,7 +22,7 @@ jobs:
 
 
       - name: Check Prettier formatting
-        run: bunx prettier --check packages/core
+        run: bunx prettier --check --list-different packages/core
 
   core-build:
     name: Build and Type Check
