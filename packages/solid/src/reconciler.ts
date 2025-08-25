@@ -74,7 +74,7 @@ export const {
     const id = getNextId(tagName)
     const element = new elements[tagName as Element](id, {})
     log("Element created with id:", id)
-    return element
+    return element as null
   },
 
   createTextNode(value: string | number | boolean | TextChunk): DomNode {
