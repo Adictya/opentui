@@ -1,4 +1,4 @@
-name: Prettier - React
+name: Prettier
 
 on:
   pull_request:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   prettier-react:
-    name: Prettier Check - React
+    name: React - Prettier Check
     runs-on: ubuntu-latest
 
     steps:
