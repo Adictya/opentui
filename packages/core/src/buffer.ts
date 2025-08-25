@@ -11,7 +11,7 @@ function isRGBAWithAlpha(color: RGBA): boolean {
 // Pack drawing options into a single u32
 // bits 0-3: borderSides, bit 4: shouldFill, bits 5-6: titleAlignment
 function packDrawOptions(
-  border: BorderSides[],
+  border: boolean | BorderSides[],
   shouldFill: boolean,
   titleAlignment: "left" | "center" | "right",
 ): number {
