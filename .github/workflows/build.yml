@@ -9,6 +9,7 @@ on:
 jobs:
   # Detect what packages need to be built based on changes
   detect-changes:
+    name: Detect Changes
     runs-on: ubuntu-latest
     outputs:
       core-changed: ${{ steps.changes.outputs.core }}
@@ -33,7 +34,7 @@ jobs:
 
   # Build core package (always needed if core changed or if react/solid need it)
   build-core:
-    name: \[ Core \] - Build and Type Check
+    name: Core - Build and Type Check
     runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.core-changed == 'true' || needs.detect-changes.outputs.react-changed == 'true' || needs.detect-changes.outputs.solid-changed == 'true'
@@ -62,7 +63,7 @@ jobs:
 
   # Build and type check React package
   build-react:
-    name: \[ React \] - Build and Type Check
+    name: React - Build and Type Check
     runs-on: ubuntu-latest
     needs: [detect-changes, build-core]
     if: needs.detect-changes.outputs.build-all == 'true' || needs.detect-changes.outputs.react-changed == 'true'
@@ -91,7 +92,7 @@ jobs:
 
   # Build and type check Solid package
   build-solid:
-    name: \[ Solid \] - Build and Type Check
+    name: Solid - Build and Type Check
     runs-on: ubuntu-latest
     needs: [detect-changes, build-core]
     if: needs.detect-changes.outputs.build-all == 'true' || needs.detect-changes.outputs.solid-changed == 'true'
