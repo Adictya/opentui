@@ -7,8 +7,19 @@ on:
     branches: [main]
 
 jobs:
-  core-checks:
-    name: Core - Lint and Type Check
+  core-prettier:
+    name: Core - Prettier Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check Prettier formatting
+        run: npx prettier --check packages/core
+
+  core-build:
+    name: Core - Build and Type Check
     runs-on: ubuntu-latest
 
     steps:
@@ -22,9 +33,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install
-
-      - name: Check Prettier formatting
-        run: bunx prettier --check packages/core
 
       - name: Build and type check
         run: |

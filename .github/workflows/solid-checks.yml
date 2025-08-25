@@ -7,8 +7,19 @@ on:
     branches: [main]
 
 jobs:
-  solid-checks:
-    name: Solid - Lint and Type Check
+  solid-prettier:
+    name: Solid - Prettier Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check Prettier formatting
+        run: npx prettier --check packages/solid
+
+  solid-build:
+    name: Solid - Build and Type Check
     runs-on: ubuntu-latest
 
     steps:
@@ -22,9 +33,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install
-
-      - name: Check Prettier formatting
-        run: bunx prettier --check packages/solid
 
       - name: Build core package (required for solid types)
         run: |
