@@ -26,6 +26,11 @@ jobs:
       - name: Check Prettier formatting
         run: bunx prettier --check packages/react
 
+      - name: Build core package (required for react types)
+        run: |
+          cd packages/core
+          npx tsc -p tsconfig.build.json --noEmit
+
       - name: Type check
         run: |
           cd packages/react

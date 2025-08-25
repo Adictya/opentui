@@ -26,6 +26,11 @@ jobs:
       - name: Check Prettier formatting
         run: bunx prettier --check packages/solid
 
+      - name: Build core package (required for solid types)
+        run: |
+          cd packages/core
+          npx tsc -p tsconfig.build.json --noEmit
+
       - name: Type check
         run: |
           cd packages/solid

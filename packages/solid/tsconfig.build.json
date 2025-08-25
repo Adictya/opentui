@@ -10,6 +10,7 @@
     "types": ["bun", "node"],
     "skipLibCheck": true,
     "jsx": "preserve",
+    "jsxImportSource": "@opentui/solid",
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
