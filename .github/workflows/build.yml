@@ -7,15 +7,14 @@ on:
     branches: [main]
 
 jobs:
-  # Detect what packages need to be built based on changes
-  detect-changes:
-    name: Detect Changes
+  # Always build core first and detect changes within this job
+  build-core:
+    name: Core - Build and Detect Changes
     runs-on: ubuntu-latest
     outputs:
-      core-changed: ${{ steps.changes.outputs.core }}
       react-changed: ${{ steps.changes.outputs.react }}
       solid-changed: ${{ steps.changes.outputs.solid }}
-      build-all: ${{ steps.changes.outputs.core == 'true' }}
+      core-changed: ${{ steps.changes.outputs.core }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,16 +30,6 @@ jobs:
               - 'packages/react/**'
             solid:
               - 'packages/solid/**'
-
-  # Build core package (always needed if core changed or if react/solid need it)
-  build-core:
-    name: Core - Build and Type Check
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.core-changed == 'true' || needs.detect-changes.outputs.react-changed == 'true' || needs.detect-changes.outputs.solid-changed == 'true'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -61,12 +50,12 @@ jobs:
           path: packages/core/dist
           key: core-build-${{ github.sha }}
 
-  # Build and type check React package
+  # Build and type check React package (runs in parallel after core)
   build-react:
     name: React - Build and Type Check
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-core]
-    if: needs.detect-changes.outputs.build-all == 'true' || needs.detect-changes.outputs.react-changed == 'true'
+    needs: build-core
+    if: needs.build-core.outputs.core-changed == 'true' || needs.build-core.outputs.react-changed == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -90,12 +79,12 @@ jobs:
           cd packages/react
           bun run build --ci
 
-  # Build and type check Solid package
+  # Build and type check Solid package (runs in parallel after core)
   build-solid:
     name: Solid - Build and Type Check
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-core]
-    if: needs.detect-changes.outputs.build-all == 'true' || needs.detect-changes.outputs.solid-changed == 'true'
+    needs: build-core
+    if: needs.build-core.outputs.core-changed == 'true' || needs.build-core.outputs.solid-changed == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
