@@ -1,0 +1,32 @@
+name: React Package Checks
+
+on:
+  pull_request:
+    paths:
+      - "packages/react/**"
+    branches: [main]
+
+jobs:
+  react-checks:
+    name: React - Lint and Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Check Prettier formatting
+        run: bunx prettier --check packages/react
+
+      - name: Type check
+        run: |
+          cd packages/react
+          npx tsc -p tsconfig.build.json --noEmit

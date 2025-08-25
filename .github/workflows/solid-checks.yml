@@ -1,0 +1,32 @@
+name: Solid Package Checks
+
+on:
+  pull_request:
+    paths:
+      - "packages/solid/**"
+    branches: [main]
+
+jobs:
+  solid-checks:
+    name: Solid - Lint and Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Check Prettier formatting
+        run: bunx prettier --check packages/solid
+
+      - name: Type check
+        run: |
+          cd packages/solid
+          npx tsc -p tsconfig.build.json --noEmit
