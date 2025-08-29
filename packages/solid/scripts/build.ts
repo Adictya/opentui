@@ -73,7 +73,7 @@ const mainBuildResult = await Bun.build({
   entrypoints: [join(rootDir, packageJson.module)],
   target: "bun",
   outdir: join(rootDir, "dist"),
-  external: externalDeps,
+  external: [...externalDeps, "@opentui/solid/reconciler"],
   plugins: [solidTransformPlugin],
   splitting: true,
 })
@@ -83,20 +83,20 @@ if (!mainBuildResult.success) {
   process.exit(1)
 }
 
-console.log("Building reconciler entry point...")
-const reconcilerBuildResult = await Bun.build({
-  entrypoints: [join(rootDir, "src/reconciler.ts")],
-  target: "bun",
-  outdir: join(rootDir, "dist/src"),
-  external: externalDeps,
-  plugins: [solidTransformPlugin],
-  splitting: true,
-})
-
-if (!reconcilerBuildResult.success) {
-  console.error("Build failed for reconciler entry point:", reconcilerBuildResult.logs)
-  process.exit(1)
-}
+// console.log("Building reconciler entry point...")
+// const reconcilerBuildResult = await Bun.build({
+//   entrypoints: [join(rootDir, "src/reconciler.ts")],
+//   target: "bun",
+//   outdir: join(rootDir, "dist/src"),
+//   external: externalDeps,
+//   plugins: [solidTransformPlugin],
+//   splitting: true,
+// })
+//
+// if (!reconcilerBuildResult.success) {
+//   console.error("Build failed for reconciler entry point:", reconcilerBuildResult.logs)
+//   process.exit(1)
+// }
 
 console.log("Generating TypeScript declarations...")
 
@@ -136,11 +136,6 @@ const exports = {
     types: "./index.d.ts",
     import: "./index.js",
     require: "./index.js",
-  },
-  "./reconciler": {
-    types: "./src/reconciler.d.ts",
-    import: "./src/reconciler.js",
-    require: "./src/reconciler.js",
   },
   "./preload": {
     import: "./scripts/preload.ts",
