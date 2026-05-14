@@ -75,6 +75,10 @@
       "types": "./src/runtime-plugin-support-configure.ts",
       "import": "./src/runtime-plugin-support-configure.ts"
     },
+    "./tree-sitter/update-assets": {
+      "types": "./src/lib/tree-sitter/update-assets.ts",
+      "import": "./src/lib/tree-sitter/update-assets.ts"
+    },
     "./parser.worker": {
       "types": "./src/lib/tree-sitter/parser.worker.ts",
       "import": "./src/lib/tree-sitter/parser.worker.ts"
