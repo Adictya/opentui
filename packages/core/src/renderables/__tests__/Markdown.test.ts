@@ -1392,7 +1392,13 @@ test("top-level structural markdown blocks have exactly one blank row between th
     id: "markdown-structural-spacing",
     content: `Paragraph before quote.
 
+- First bullet
+- Second bullet
+
 > Quote text.
+
+1. First step
+2. Second step
 
 | A | B |
 | --- | --- |
@@ -1423,7 +1429,13 @@ Paragraph after diff.
     "
     Paragraph before quote.
     
+    - First bullet
+    - Second bullet
+    
     │ Quote text.
+    
+    1. First step
+    2. Second step
     
     ┌───┬───┐
     │ A │ B │
@@ -2227,7 +2239,7 @@ test("internalBlockMode=top-level normalizes one blank row between top-level blo
   `)
 })
 
-test("internalBlockMode=top-level keeps tight paragraph list transitions tight", async () => {
+test("internalBlockMode=top-level adds spacing before lists", async () => {
   const md = createMarkdownRenderable({
     id: "markdown-top-level-tight-list-spacing",
     content: "Paragraph:\n- one\n- two",
@@ -2238,7 +2250,7 @@ test("internalBlockMode=top-level keeps tight paragraph list transitions tight",
   renderer.root.add(md)
   await renderMarkdownRenderable(md)
 
-  expect(md._blockStates.map((state) => state.marginTop ?? 0)).toEqual([0, 0])
+  expect(md._blockStates.map((state) => state.marginTop ?? 0)).toEqual([0, 1])
 
   const lines = captureFrame()
     .split("\n")
@@ -2247,6 +2259,7 @@ test("internalBlockMode=top-level keeps tight paragraph list transitions tight",
   expect("\n" + lines.join("\n").trimEnd()).toMatchInlineSnapshot(`
     "
     Paragraph:
+    
     - one
     - two"
   `)
@@ -2275,7 +2288,98 @@ test("internalBlockMode=top-level preserves source blank line before lists", asy
   `)
 })
 
-test("internalBlockMode=top-level tightens spacing when a blank line is removed", async () => {
+test("internalBlockMode=top-level adds spacing after unordered lists", async () => {
+  const md = createMarkdownRenderable({
+    id: "markdown-top-level-unordered-list-after-spacing",
+    content: "- one\n- two\n\nParagraph after list",
+    syntaxStyle,
+    internalBlockMode: "top-level",
+  })
+
+  renderer.root.add(md)
+  await renderMarkdownRenderable(md)
+
+  expect(md._blockStates.map((state) => state.marginTop ?? 0)).toEqual([0, 1])
+
+  const lines = captureFrame()
+    .split("\n")
+    .map((line) => line.trimEnd())
+
+  expect("\n" + lines.join("\n").trimEnd()).toMatchInlineSnapshot(`
+    "
+    - one
+    - two
+    
+    Paragraph after list"
+  `)
+})
+
+test("internalBlockMode=top-level adds spacing after ordered lists", async () => {
+  const md = createMarkdownRenderable({
+    id: "markdown-top-level-ordered-list-after-spacing",
+    content: "1. one\n2. two\n\nParagraph after list",
+    syntaxStyle,
+    internalBlockMode: "top-level",
+  })
+
+  renderer.root.add(md)
+  await renderMarkdownRenderable(md)
+
+  expect(md._blockStates.map((state) => state.marginTop ?? 0)).toEqual([0, 1])
+
+  const lines = captureFrame()
+    .split("\n")
+    .map((line) => line.trimEnd())
+
+  expect("\n" + lines.join("\n").trimEnd()).toMatchInlineSnapshot(`
+    "
+    1. one
+    2. two
+    
+    Paragraph after list"
+  `)
+})
+
+test("internalBlockMode=top-level treats lists as separated blocks", async () => {
+  const md = createMarkdownRenderable({
+    id: "markdown-top-level-list-block-spacing",
+    content: `Paragraph before unordered list.
+- one
+- two
+
+Paragraph after unordered list.
+1. one
+2. two
+
+Paragraph after ordered list.`,
+    syntaxStyle,
+    internalBlockMode: "top-level",
+  })
+
+  renderer.root.add(md)
+  await renderMarkdownRenderable(md)
+
+  const lines = captureFrame()
+    .split("\n")
+    .map((line) => line.trimEnd())
+
+  expect("\n" + lines.join("\n").trimEnd()).toMatchInlineSnapshot(`
+    "
+    Paragraph before unordered list.
+    
+    - one
+    - two
+    
+    Paragraph after unordered list.
+    
+    1. one
+    2. two
+    
+    Paragraph after ordered list."
+  `)
+})
+
+test("internalBlockMode=top-level preserves list spacing when a blank line is removed", async () => {
   const md = createMarkdownRenderable({
     id: "markdown-top-level-tighten-spacing",
     content: "Paragraph\n\n- one\n- two",
@@ -2289,7 +2393,7 @@ test("internalBlockMode=top-level tightens spacing when a blank line is removed"
   md.content = "Paragraph\n- one\n- two"
   await renderMarkdownRenderable(md)
 
-  expect(md._blockStates.map((state) => state.marginTop ?? 0)).toEqual([0, 0])
+  expect(md._blockStates.map((state) => state.marginTop ?? 0)).toEqual([0, 1])
 
   const lines = captureFrame()
     .split("\n")
@@ -2298,6 +2402,7 @@ test("internalBlockMode=top-level tightens spacing when a blank line is removed"
   expect("\n" + lines.join("\n").trimEnd()).toMatchInlineSnapshot(`
     "
     Paragraph
+    
     - one
     - two"
   `)
