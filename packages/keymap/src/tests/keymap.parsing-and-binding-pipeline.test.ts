@@ -90,6 +90,27 @@ describe("keymap: parsing and binding pipeline", () => {
     expect(calls).toEqual(["direct"])
   })
 
+  test("matches ctrl+space from Kitty keyboard protocol", () => {
+    const keymap = getKeymap(renderer)
+    const calls: string[] = []
+
+    keymap.registerLayer({
+      commands: [
+        {
+          name: "leader",
+          run() {
+            calls.push("leader")
+          },
+        },
+      ],
+    })
+    keymap.registerLayer({ bindings: [{ key: "ctrl+space", cmd: "leader" }] })
+
+    renderer.stdin.emit("data", Buffer.from("\x1b[32;5u"))
+
+    expect(calls).toEqual(["leader"])
+  })
+
   test("prefers lower-layer direct strokes over higher-layer fallback strokes", () => {
     const keymap = getKeymap(renderer)
     const calls: string[] = []
