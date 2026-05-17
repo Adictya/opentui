@@ -19,7 +19,6 @@ import {
 import type { RenderableConstructor } from "../types/elements.js"
 export * from "./hooks.js"
 export * from "./extras.js"
-export * from "./slot.js"
 
 class SpanRenderable extends TextNodeRenderable {
   constructor(

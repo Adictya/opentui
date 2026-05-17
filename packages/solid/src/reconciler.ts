@@ -20,7 +20,8 @@ import {
 import { decodeHTML } from "entities"
 import { useContext } from "solid-js"
 import { createRenderer } from "./renderer/index.js"
-import { getComponentCatalogue, RendererContext, SlotRenderable } from "./elements/index.js"
+import { getComponentCatalogue, RendererContext } from "./elements/index.js"
+import { solidSlotAdapter, type SlotMarker } from "./elements/slot.js"
 import { getNextId } from "./utils/id-counter.js"
 import { log } from "./utils/log.js"
 
@@ -55,6 +56,47 @@ const getNodeChildren = (node: DomNode) => {
   return children
 }
 
+function isSlotNode(node: unknown): node is SlotMarker {
+  return solidSlotAdapter.isMarker(node)
+}
+
+function resolveSlotForInsert(parent: DomNode, node: DomNode): DomNode {
+  if (!isSlotNode(node)) {
+    return node
+  }
+
+  return solidSlotAdapter.materialize(parent, node)
+}
+
+function resolveSlotForAnchor(parent: DomNode, node?: DomNode): DomNode | undefined {
+  if (!node || !isSlotNode(node)) {
+    return node
+  }
+
+  return solidSlotAdapter.attached(parent, node)
+}
+
+function resolveSlotForRemoval(parent: DomNode, node: DomNode): DomNode | undefined {
+  if (!isSlotNode(node)) {
+    return node
+  }
+
+  const slotChild = solidSlotAdapter.attached(parent, node)
+  if (!slotChild) {
+    solidSlotAdapter.removed(parent, node)
+  }
+
+  return slotChild
+}
+
+function resolveSlotForTraversal(parent: DomNode, node: DomNode): DomNode | undefined {
+  if (!isSlotNode(node)) {
+    return node
+  }
+
+  return solidSlotAdapter.attached(parent, node)
+}
+
 function _insertNode(parent: DomNode, node: DomNode, anchor?: DomNode): void {
   log(
     "Inserting node:",
@@ -66,22 +108,16 @@ function _insertNode(parent: DomNode, node: DomNode, anchor?: DomNode): void {
     node instanceof TextNode,
   )
 
-  if (node instanceof SlotRenderable) {
-    node.parent = parent
-    node = node.getSlotChild(parent)
-  }
+  const hostNode = resolveSlotForInsert(parent, node)
+  const hostAnchor = resolveSlotForAnchor(parent, anchor)
 
-  if (anchor && anchor instanceof SlotRenderable) {
-    anchor = anchor.getSlotChild(parent)
-  }
-
-  if (isTextNodeRenderable(node)) {
+  if (isTextNodeRenderable(hostNode)) {
     if (!(parent instanceof TextRenderable) && !isTextNodeRenderable(parent)) {
       throw new Error(
-        `Orphan text error: "${node
+        `Orphan text error: "${hostNode
           .toChunks()
           .map((c) => c.text)
-          .join("")}" must have a <text> as a parent: ${parent.id} above ${node.id}`,
+          .join("")}" must have a <text> as a parent: ${parent.id} above ${hostNode.id}`,
       )
     }
   }
@@ -93,49 +129,53 @@ function _insertNode(parent: DomNode, node: DomNode, anchor?: DomNode): void {
     throw new Error("Tried to mount a non base renderable")
   }
 
-  if (!anchor) {
-    parent.add(node)
+  if (!hostAnchor) {
+    parent.add(hostNode)
     return
   }
 
   const children = getNodeChildren(parent)
 
-  const anchorIndex = children.findIndex((el) => el.id === anchor.id)
+  const anchorIndex = children.findIndex((el) => el.id === hostAnchor.id)
   if (anchorIndex === -1) {
-    log("[INSERT]", "Could not find anchor", logId(parent), logId(anchor), "[children]", ...children.map((c) => c.id))
+    log(
+      "[INSERT]",
+      "Could not find anchor",
+      logId(parent),
+      logId(hostAnchor),
+      "[children]",
+      ...children.map((c) => c.id),
+    )
   }
 
-  parent.add(node, anchorIndex)
+  parent.add(hostNode, anchorIndex)
 }
 
 function _removeNode(parent: DomNode, node: DomNode): void {
   log("Removing node:", logId(node), "from parent:", logId(parent))
 
-  let slotParent: SlotRenderable | undefined
-
-  if (node instanceof SlotRenderable) {
-    slotParent = node
-    const slotChild = slotParent.getSlotChildForRemoval(parent)
-    if (!slotChild) {
-      if (slotParent.parent === parent) {
-        slotParent.parent = null
-      }
-      return
-    }
-
-    node = slotChild
+  const hostNode = resolveSlotForRemoval(parent, node)
+  if (!hostNode) {
+    return
   }
 
-  parent.remove(node.id)
+  parent.remove(hostNode.id)
 
-  slotParent?.didRemoveSlotChild(parent, node)
+  if (isSlotNode(node)) {
+    solidSlotAdapter.removed(parent, node, hostNode)
+    return
+  }
 
   process.nextTick(() => {
-    if (node instanceof BaseRenderable && !node.parent) {
-      node.destroyRecursively()
+    if (hostNode instanceof BaseRenderable && !hostNode.parent) {
+      hostNode.destroyRecursively()
       return
     }
   })
+}
+
+function _createSlotNode(): DomNode {
+  return solidSlotAdapter.createMarker() as unknown as DomNode
 }
 
 function _createTextNode(value: string | number): TextNode {
@@ -150,14 +190,12 @@ function _createTextNode(value: string | number): TextNode {
   return TextNode.fromString(decodeHTML(value), { id })
 }
 
-export function createSlotNode(): SlotRenderable {
-  const id = getNextId("slot-node")
-  log("Creating slot node", id)
-  return new SlotRenderable(id)
-}
-
 function _getParentNode(childNode: DomNode): DomNode | undefined {
   log("Getting parent of node:", logId(childNode))
+
+  if (isSlotNode(childNode)) {
+    return solidSlotAdapter.getHost(childNode) ?? undefined
+  }
 
   let parent = childNode.parent ?? undefined
   if (parent instanceof RootTextNodeRenderable) {
@@ -208,7 +246,7 @@ export const {
 
   createTextNode: _createTextNode,
 
-  createSlotNode,
+  createSlotNode: _createSlotNode,
 
   replaceText(textNode: TextNode, value: string): void {
     log("Replacing text:", value, "in node:", logId(textNode))
@@ -377,15 +415,14 @@ export const {
       return undefined
     }
 
-    if (node instanceof SlotRenderable) {
-      const layoutSlotNode = node.getSlotChildForRemoval(parent)
-      if (layoutSlotNode) {
-        node = layoutSlotNode
-      }
+    const hostNode = resolveSlotForTraversal(parent, node)
+    if (!hostNode) {
+      log("No host node found for node:", logId(node))
+      return undefined
     }
 
     const siblings = getNodeChildren(parent)
-    const index = siblings.indexOf(node)
+    const index = siblings.indexOf(hostNode)
 
     if (index === -1 || index === siblings.length - 1) {
       log("No next sibling found for node:", logId(node))

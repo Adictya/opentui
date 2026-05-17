@@ -2,9 +2,16 @@ import { describe, expect, it } from "bun:test"
 import { BoxRenderable, Yoga } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
 import { batch, createRoot, createSignal } from "solid-js"
-import { createSlotNode, insert } from "../index.js"
+import { insert } from "../index.js"
+import { createSlotAdapter, createSlotMarker, getSlotHost, type SlotMarker } from "../src/elements/slot.js"
 
 type MoveOrder = "remove-then-insert" | "insert-then-remove"
+
+let slotId = 0
+
+function createTestSlotMarker(): SlotMarker {
+  return createSlotMarker(`test-slot-${++slotId}`)
+}
 
 function assignDistinctLayoutConstructor(parent: BoxRenderable): void {
   const layoutNode = parent.getLayoutNode() as Yoga.Node & { constructor?: { create?: () => Yoga.Node } }
@@ -33,7 +40,7 @@ async function runMoveScenario(order: MoveOrder) {
   assignDistinctLayoutConstructor(parentA)
   assignDistinctLayoutConstructor(parentB)
 
-  const slot = createSlotNode()
+  const slot = createTestSlotMarker()
   const controls = createRoot((dispose) => {
     const [inParentA, setInParentA] = createSignal(true)
     const [inParentB, setInParentB] = createSignal(false)
@@ -81,14 +88,12 @@ async function runMoveScenario(order: MoveOrder) {
     parentA,
     parentB,
     setup,
-    slot,
   }
 }
 
 describe("slot placeholder moves", () => {
   it("recreates incompatible layout placeholders for remove-then-insert moves", async () => {
-    const { controls, movedChild, originalChild, parentA, parentB, setup, slot } =
-      await runMoveScenario("remove-then-insert")
+    const { controls, movedChild, originalChild, parentA, parentB, setup } = await runMoveScenario("remove-then-insert")
 
     try {
       expect(movedChild).not.toBe(originalChild)
@@ -97,7 +102,6 @@ describe("slot placeholder moves", () => {
       expect(parentB.getChildren()[0]).toBe(movedChild)
       expect(movedChild.parent).toBe(parentB)
       expect((movedChild as any).destroyed).toBe(false)
-      expect((slot as any).destroyed).toBe(false)
     } finally {
       controls.dispose()
       setup.renderer.destroy()
@@ -105,8 +109,7 @@ describe("slot placeholder moves", () => {
   })
 
   it("recreates incompatible layout placeholders for insert-then-remove moves", async () => {
-    const { controls, movedChild, originalChild, parentA, parentB, setup, slot } =
-      await runMoveScenario("insert-then-remove")
+    const { controls, movedChild, originalChild, parentA, parentB, setup } = await runMoveScenario("insert-then-remove")
 
     try {
       expect(movedChild).not.toBe(originalChild)
@@ -115,14 +118,13 @@ describe("slot placeholder moves", () => {
       expect(parentB.getChildren()[0]).toBe(movedChild)
       expect(movedChild.parent).toBe(parentB)
       expect((movedChild as any).destroyed).toBe(false)
-      expect((slot as any).destroyed).toBe(false)
     } finally {
       controls.dispose()
       setup.renderer.destroy()
     }
   })
 
-  it("promotes slot.parent back to another attached host when the newest placeholder is removed", async () => {
+  it("promotes the slot host back to another attached host when the newest placeholder is removed", async () => {
     const setup = await createTestRenderer({ width: 40, height: 10 })
     const parentA = new BoxRenderable(setup.renderer, {
       id: "slot-parent-host-a",
@@ -138,23 +140,22 @@ describe("slot placeholder moves", () => {
     setup.renderer.root.add(parentA)
     setup.renderer.root.add(parentB)
 
-    const slot = createSlotNode()
+    const slotAdapter = createSlotAdapter(() => `test-slot-${++slotId}`)
+    const slot = slotAdapter.createMarker()
 
     try {
-      slot.parent = parentA
-      const childA = slot.getSlotChild(parentA)
+      const childA = slotAdapter.materialize(parentA, slot)
       parentA.add(childA)
 
-      slot.parent = parentB
-      const childB = slot.getSlotChild(parentB)
+      const childB = slotAdapter.materialize(parentB, slot)
       parentB.add(childB)
 
-      expect(slot.parent).toBe(parentB)
+      expect(getSlotHost(slot)).toBe(parentB)
 
       parentB.remove(childB.id)
-      slot.didRemoveSlotChild(parentB, childB)
+      slotAdapter.removed(parentB, slot, childB)
 
-      expect(slot.parent).toBe(parentA)
+      expect(getSlotHost(slot)).toBe(parentA)
       expect(parentA.getChildren()[0]).toBe(childA)
       expect(parentB.getChildren()).toHaveLength(0)
     } finally {

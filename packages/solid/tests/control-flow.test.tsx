@@ -842,7 +842,7 @@ describe("SolidJS Renderer - Control Flow Components", () => {
       expect(parentBox).toBeDefined()
 
       // This should work - findDescendantById should be able to traverse through or skip slot renderables
-      // Currently fails because LayoutSlotRenderable (from Show when={false}) doesn't have findDescendantById
+      // Regression guard: hidden control-flow markers should not block descendant lookup.
       const anotherVisible = parentBox?.findDescendantById("another-visible")
       expect(anotherVisible).toBeDefined()
       expect(anotherVisible?.id).toBe("another-visible")

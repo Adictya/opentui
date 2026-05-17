@@ -5,7 +5,7 @@ import { createContext, createComponent, createSignal, onCleanup, onMount, useCo
 import { createSlot, createSolidSlotRegistry, Slot, type SolidPlugin } from "../src/plugins/slot.js"
 import { _render as renderInternal } from "../src/reconciler.js"
 import { RendererContext } from "../src/elements/index.js"
-import { SlotRenderable } from "../src/elements/slot.js"
+import { createSlotAdapter, destroySlotMarker } from "../src/elements/slot.js"
 
 interface AppSlots {
   statusbar: { user: string }
@@ -88,13 +88,14 @@ describe("Solid Slot System", () => {
       },
     } as unknown as BaseRenderable
 
-    const slot = new SlotRenderable("factory-slot")
-    const child = slot.getSlotChild(parent)
+    const adapter = createSlotAdapter(() => "factory-slot")
+    const slot = adapter.createMarker()
+    const child = adapter.materialize(parent, slot)
 
-    expect(child.getLayoutNode()).toBe(layoutNode)
+    expect((child as any).getLayoutNode()).toBe(layoutNode)
     expect(display).toBe(Yoga.Display.None)
 
-    slot.destroy()
+    destroySlotMarker(slot)
   })
 
   it("recreates a detached layout placeholder when the parent Yoga factory changes", () => {
@@ -135,21 +136,22 @@ describe("Solid Slot System", () => {
       },
     } as unknown as BaseRenderable
 
-    const slot = new SlotRenderable("moving-slot")
-    const firstChild = slot.getSlotChild(parentA)
+    const adapter = createSlotAdapter(() => "moving-slot")
+    const slot = adapter.createMarker()
+    const firstChild = adapter.materialize(parentA, slot)
 
-    expect(firstChild.getLayoutNode()).toBe(layoutNodeA)
+    expect((firstChild as any).getLayoutNode()).toBe(layoutNodeA)
     expect(displayA).toBe(Yoga.Display.None)
 
     firstChild.parent = null
 
-    const secondChild = slot.getSlotChild(parentB)
+    const secondChild = adapter.materialize(parentB, slot)
 
     expect(secondChild).not.toBe(firstChild)
-    expect(secondChild.getLayoutNode()).toBe(layoutNodeB)
+    expect((secondChild as any).getLayoutNode()).toBe(layoutNodeB)
     expect(displayB).toBe(Yoga.Display.None)
 
-    slot.destroy()
+    destroySlotMarker(slot)
   })
 
   it("reuses one registry per renderer and rejects different context", async () => {
