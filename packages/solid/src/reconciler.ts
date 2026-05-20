@@ -7,24 +7,29 @@ import {
   isTextNodeRenderable,
   parseColor,
   Renderable,
-  RootTextNodeRenderable,
   ScrollBoxRenderable,
   SelectRenderable,
   SelectRenderableEvents,
   TabSelectRenderable,
   TabSelectRenderableEvents,
-  TextNodeRenderable,
   TextRenderable,
   type TextNodeOptions,
 } from "@opentui/core"
 import { decodeHTML } from "entities"
 import { useContext } from "solid-js"
 import { createRenderer } from "./renderer/index.js"
-import { getComponentCatalogue, RendererContext, SlotRenderable } from "./elements/index.js"
+import {
+  getComponentCatalogue,
+  getTextRenderableParent,
+  MarkerRenderable,
+  RendererContext,
+  SolidTextRenderable,
+  SolidTextNodeRenderable,
+} from "./elements/index.js"
 import { getNextId } from "./utils/id-counter.js"
 import { log } from "./utils/log.js"
 
-class TextNode extends TextNodeRenderable {
+class TextNode extends SolidTextNodeRenderable {
   public static override fromString(text: string, options: Partial<TextNodeOptions> = {}): TextNode {
     const node = new TextNode(options)
     node.add(text)
@@ -66,16 +71,16 @@ function _insertNode(parent: DomNode, node: DomNode, anchor?: DomNode): void {
     node instanceof TextNode,
   )
 
-  if (node instanceof SlotRenderable) {
-    node.parent = parent
-    node = node.getSlotChild(parent)
+  if (
+    (node instanceof TextRenderable && !(node instanceof SolidTextRenderable)) ||
+    (isTextNodeRenderable(node) && !(node instanceof SolidTextNodeRenderable))
+  ) {
+    console.warn(
+      "Markers are not supported in core Text renderables and can cause unexpected behavior, prefer using solid Text renderable variants",
+    )
   }
 
-  if (anchor && anchor instanceof SlotRenderable) {
-    anchor = anchor.getSlotChild(parent)
-  }
-
-  if (isTextNodeRenderable(node)) {
+  if (isTextNodeRenderable(node) && !(node instanceof MarkerRenderable)) {
     if (!(parent instanceof TextRenderable) && !isTextNodeRenderable(parent)) {
       throw new Error(
         `Orphan text error: "${node
@@ -93,42 +98,15 @@ function _insertNode(parent: DomNode, node: DomNode, anchor?: DomNode): void {
     throw new Error("Tried to mount a non base renderable")
   }
 
-  if (!anchor) {
-    parent.add(node)
-    return
-  }
-
-  const children = getNodeChildren(parent)
-
-  const anchorIndex = children.findIndex((el) => el.id === anchor.id)
-  if (anchorIndex === -1) {
-    log("[INSERT]", "Could not find anchor", logId(parent), logId(anchor), "[children]", ...children.map((c) => c.id))
-  }
-
-  parent.add(node, anchorIndex)
+  if (!anchor) parent.add(node)
+  else if (node === anchor) return
+  else parent.insertBefore(node, anchor)
 }
 
 function _removeNode(parent: DomNode, node: DomNode): void {
   log("Removing node:", logId(node), "from parent:", logId(parent))
 
-  let slotParent: SlotRenderable | undefined
-
-  if (node instanceof SlotRenderable) {
-    slotParent = node
-    const slotChild = slotParent.getSlotChildForRemoval(parent)
-    if (!slotChild) {
-      if (slotParent.parent === parent) {
-        slotParent.parent = null
-      }
-      return
-    }
-
-    node = slotChild
-  }
-
   parent.remove(node.id)
-
-  slotParent?.didRemoveSlotChild(parent, node)
 
   process.nextTick(() => {
     if (node instanceof BaseRenderable && !node.parent) {
@@ -150,19 +128,17 @@ function _createTextNode(value: string | number): TextNode {
   return TextNode.fromString(decodeHTML(value), { id })
 }
 
-export function createSlotNode(): SlotRenderable {
-  const id = getNextId("slot-node")
-  log("Creating slot node", id)
-  return new SlotRenderable(id)
+export function createMarkerNode(): MarkerRenderable {
+  const id = getNextId("marker-node")
+  log("Creating marker node", id)
+  return new MarkerRenderable({ id })
 }
 
-function _getParentNode(childNode: DomNode): DomNode | undefined {
+export function getParentNode(childNode: DomNode): DomNode | undefined {
   log("Getting parent of node:", logId(childNode))
 
   let parent = childNode.parent ?? undefined
-  if (parent instanceof RootTextNodeRenderable) {
-    parent = parent.textParent ?? undefined
-  }
+  parent = getTextRenderableParent(parent) ?? parent
   // ScrollBox delegates add/remove to its internal `content` wrapper
   // (scrollbox → wrapper → viewport → content), so children report
   // `content` as their parent. Return the ScrollBox so the identity
@@ -208,7 +184,7 @@ export const {
 
   createTextNode: _createTextNode,
 
-  createSlotNode,
+  createMarkerNode,
 
   replaceText(textNode: TextNode, value: string): void {
     log("Replacing text:", value, "in node:", logId(textNode))
@@ -352,7 +328,7 @@ export const {
 
   removeNode: _removeNode,
 
-  getParentNode: _getParentNode,
+  getParentNode: getParentNode,
 
   getFirstChild(node: DomNode): DomNode | undefined {
     log("Getting first child of node:", logId(node))
@@ -371,17 +347,10 @@ export const {
   getNextSibling(node: DomNode): DomNode | undefined {
     log("Getting next sibling of node:", logId(node))
 
-    const parent = _getParentNode(node)
+    const parent = getParentNode(node)
     if (!parent) {
       log("No parent found for node:", logId(node))
       return undefined
-    }
-
-    if (node instanceof SlotRenderable) {
-      const layoutSlotNode = node.getSlotChildForRemoval(parent)
-      if (layoutSlotNode) {
-        node = layoutSlotNode
-      }
     }
 
     const siblings = getNodeChildren(parent)

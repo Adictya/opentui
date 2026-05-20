@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "bun:test"
 import { testRender, Dynamic, Portal } from "../index.js"
 import { createSignal, Show } from "solid-js"
 import { createSpy } from "@opentui/core/testing"
-import type { BoxRenderable } from "@opentui/core"
+import type { BoxRenderable, TextRenderable } from "@opentui/core"
 
 let testSetup: Awaited<ReturnType<typeof testRender>>
 
@@ -82,7 +82,7 @@ describe("SolidJS Renderer - Dynamic and Portal Components", () => {
     })
 
     it("should handle false Show inside dynamic that switches between text and box", async () => {
-      /* Tests for slot renderable being able handle switching between a LayoutSlot and a TextSlot
+      /* Tests for marker nodes being able handle switching between text and layout parents.
        * Expected to just run without crash
        */
       const [componentType, setComponentType] = createSignal<"text" | "box">("text")
@@ -123,6 +123,30 @@ describe("SolidJS Renderer - Dynamic and Portal Components", () => {
       await testSetup.renderOnce()
       const frame = testSetup.captureCharFrame()
       expect(frame).toContain("Portal content")
+    })
+
+    it("should normalize portal host when marker is inside text", async () => {
+      let hostText!: TextRenderable
+      let portalContainer!: BoxRenderable
+
+      testSetup = await testRender(
+        () => (
+          <box>
+            <text ref={hostText}>
+              Before
+              <Portal ref={(el) => (portalContainer = el as BoxRenderable)}>
+                <text>Portal content</text>
+              </Portal>
+              After
+            </text>
+          </box>
+        ),
+        { width: 25, height: 8 },
+      )
+
+      await testSetup.renderOnce()
+
+      expect((portalContainer as any)._$host).toBe(hostText)
     })
 
     it("should render content to custom mount point", async () => {

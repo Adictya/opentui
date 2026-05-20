@@ -1,6 +1,6 @@
 import { createEffect, createMemo, getOwner, onCleanup, runWithOwner, splitProps, untrack } from "solid-js"
-import { createSlotNode, createElement, insert, spread, type DomNode } from "../reconciler.js"
-import type { JSX } from "../../jsx-runtime"
+import { createMarkerNode, createElement, getParentNode, insert, spread, type DomNode } from "../reconciler.js"
+import type { JSX } from "../../jsx-runtime.js"
 import type { ValidComponent, ComponentProps } from "solid-js"
 import { useRenderer } from "./hooks.js"
 
@@ -14,7 +14,7 @@ import { useRenderer } from "./hooks.js"
 export function Portal(props: { mount?: DomNode; ref?: (el: {}) => void; children: JSX.Element }): DomNode {
   const renderer = useRenderer()
 
-  const marker = createSlotNode(),
+  const marker = createMarkerNode(),
     mount = () => props.mount || renderer.root,
     owner = getOwner()
   let content: undefined | (() => JSX.Element)
@@ -29,7 +29,7 @@ export function Portal(props: { mount?: DomNode; ref?: (el: {}) => void; childre
 
       Object.defineProperty(container, "_$host", {
         get() {
-          return marker.parent
+          return getParentNode(marker)
         },
         configurable: true,
       })

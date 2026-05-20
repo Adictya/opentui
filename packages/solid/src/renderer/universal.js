@@ -5,7 +5,7 @@ const memo = (fn) => createMemo(() => fn())
 export function createRenderer({
   createElement,
   createTextNode,
-  createSlotNode,
+  createMarkerNode,
   isTextNode,
   replaceText,
   insertNode,
@@ -167,7 +167,7 @@ export function createRenderer({
       replacement && insertNode(parent, replacement)
       return replacement ?? ""
     }
-    const node = replacement || createSlotNode()
+    const node = replacement || createMarkerNode()
     if (current.length) {
       let inserted = false
       for (let i = current.length - 1; i >= 0; i--) {

@@ -3,7 +3,7 @@ import { stringToStyledText, StyledText } from "../lib/styled-text.js"
 import { type TextChunk } from "../text-buffer.js"
 import { RGBA } from "../lib/RGBA.js"
 import { type RenderContext } from "../types.js"
-import { RootTextNodeRenderable, TextNodeRenderable } from "./TextNode.js"
+import { RootTextNodeRenderable, TextNodeRenderable, type TextNodeOptions } from "./TextNode.js"
 import { TextBufferRenderable, type TextBufferOptions } from "./TextBufferRenderable.js"
 
 export interface TextOptions extends TextBufferOptions {
@@ -17,11 +17,15 @@ export class TextRenderable extends TextBufferRenderable {
   // We should refactor this to only use the RootTextNodeRenderable here and have a separate StyledTextRenderable with `content`.
   private _hasManualStyledText: boolean = false
 
-  protected rootTextNode: RootTextNodeRenderable
+  protected rootTextNode: TextNodeRenderable
 
   protected _contentDefaultOptions = {
     content: "",
   } satisfies Partial<TextOptions>
+
+  protected createRootTextNode(ctx: RenderContext, options: TextNodeOptions): TextNodeRenderable {
+    return new RootTextNodeRenderable(ctx, options, this)
+  }
 
   constructor(ctx: RenderContext, options: TextOptions) {
     super(ctx, options)
@@ -31,16 +35,12 @@ export class TextRenderable extends TextBufferRenderable {
     this._text = styledText
     this._hasManualStyledText = options.content !== undefined && content !== ""
 
-    this.rootTextNode = new RootTextNodeRenderable(
-      ctx,
-      {
-        id: `${this.id}-root`,
-        fg: this._defaultFg,
-        bg: this._defaultBg,
-        attributes: this._defaultAttributes,
-      },
-      this,
-    )
+    this.rootTextNode = this.createRootTextNode(ctx, {
+      id: `${this.id}-root`,
+      fg: this._defaultFg,
+      bg: this._defaultBg,
+      attributes: this._defaultAttributes,
+    })
 
     this.updateTextBuffer(styledText)
   }
@@ -68,7 +68,7 @@ export class TextRenderable extends TextBufferRenderable {
     return this._text.chunks
   }
 
-  get textNode(): RootTextNodeRenderable {
+  get textNode(): TextNodeRenderable {
     return this.rootTextNode
   }
 

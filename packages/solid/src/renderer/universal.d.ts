@@ -1,7 +1,7 @@
 export interface RendererOptions<NodeType> {
   createElement(tag: string): NodeType
   createTextNode(value: string): NodeType
-  createSlotNode(): NodeType
+  createMarkerNode(): NodeType
   replaceText(textNode: NodeType, value: string): void
   isTextNode(node: NodeType): boolean
   setProperty<T>(node: NodeType, name: string, value: T, prev?: T): void
