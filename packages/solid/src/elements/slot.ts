@@ -49,6 +49,10 @@ class SlotBaseRenderable extends BaseRenderable {
   public findDescendantById(id: string): BaseRenderable | undefined {
     return undefined
   }
+
+  public override destroyRecursively(): void {
+    this.destroy()
+  }
 }
 
 export class TextSlotRenderable extends TextNodeRenderable {
@@ -72,6 +76,10 @@ export class TextSlotRenderable extends TextNodeRenderable {
 
     this.destroyed = true
     this.detachFromSlot()
+  }
+
+  public override destroyRecursively(): void {
+    this.destroy()
   }
 
   public override destroy(): void {
@@ -161,8 +169,9 @@ export class LayoutSlotRenderable extends SlotBaseRenderable {
 
 export class SlotRenderable extends SlotBaseRenderable {
   protected destroyed: boolean = false
-  private readonly layoutNodesByParent = new Map<BaseRenderable, LayoutSlotRenderable>()
-  private readonly textNodesByParent = new Map<BaseRenderable, TextSlotRenderable>()
+  private layoutSlotNode?: LayoutSlotRenderable
+  private textSlotNode?: TextSlotRenderable
+  private textSlotHost?: BaseRenderable
   private layoutNodeCount: number = 0
   private textNodeCount: number = 0
 
@@ -173,202 +182,109 @@ export class SlotRenderable extends SlotBaseRenderable {
   }
 
   public get layoutNode(): LayoutSlotRenderable | undefined {
-    return this.getCurrentSlotChild(this.layoutNodesByParent)
+    return this.layoutSlotNode
   }
 
   public get textNode(): TextSlotRenderable | undefined {
-    return this.getCurrentSlotChild(this.textNodesByParent)
+    return this.textSlotNode
   }
 
   private isTextSlotParent(parent: BaseRenderable): boolean {
     return isTextNodeRenderable(parent) || parent instanceof TextRenderable
   }
 
-  private getCurrentSlotChild<T extends BaseRenderable>(nodesByParent: Map<BaseRenderable, T>): T | undefined {
-    for (const node of nodesByParent.values()) {
-      if (node.parent) {
-        return node
-      }
+  private getTextSlotHost(): BaseRenderable | null {
+    if (!this.textSlotNode?.parent) {
+      return null
     }
 
-    return nodesByParent.values().next().value
+    return this.textSlotHost ?? this.textSlotNode.parent
   }
 
-  private getTextNodeForParent(parent: BaseRenderable): TextSlotRenderable | undefined {
-    const mappedNode = this.textNodesByParent.get(parent)
-    if (mappedNode) {
-      return mappedNode
+  private getLayoutSlotHost(): BaseRenderable | null {
+    return this.layoutSlotNode?.parent ?? null
+  }
+
+  private isSlotChildAttachedToParent(parent: BaseRenderable, child: BaseRenderable): boolean {
+    if (parent instanceof TextRenderable) {
+      return parent.getTextChildren().includes(child)
     }
 
-    for (const [mappedParent, textNode] of this.textNodesByParent) {
-      if (textNode.parent !== parent) {
-        continue
-      }
+    return parent.getChildren().includes(child)
+  }
 
-      this.textNodesByParent.delete(mappedParent)
-      this.textNodesByParent.set(parent, textNode)
-      return textNode
+  private detachSlotChildFromParent(parent: BaseRenderable, child: BaseRenderable): void {
+    if (!this.isSlotChildAttachedToParent(parent, child)) {
+      return
+    }
+
+    parent.remove(child.id)
+  }
+
+  private detachAttachedSlotChildrenExcept(parent: BaseRenderable): void {
+    const textNode = this.textSlotNode
+    const textHost = this.getTextSlotHost()
+    if (textNode && textHost && textHost !== parent) {
+      this.detachSlotChildFromParent(textHost, textNode)
+    }
+
+    const layoutNode = this.layoutSlotNode
+    const layoutHost = this.getLayoutSlotHost()
+    if (layoutNode && layoutHost && layoutHost !== parent) {
+      this.detachSlotChildFromParent(layoutHost, layoutNode)
     }
   }
 
-  private getLayoutNodeForParent(parent: BaseRenderable): LayoutSlotRenderable | undefined {
-    const mappedNode = this.layoutNodesByParent.get(parent)
-    if (mappedNode) {
-      return mappedNode
-    }
+  private disposeLayoutNode(): void {
+    this.layoutSlotNode?.disposeWithoutSlotCascade()
+    this.layoutSlotNode = undefined
+  }
 
-    for (const [mappedParent, layoutNode] of this.layoutNodesByParent) {
-      if (layoutNode.parent !== parent) {
-        continue
+  private getAttachedSlotChildForParent(parent: BaseRenderable): BaseRenderable | undefined {
+    if (this.isTextSlotParent(parent)) {
+      const textNode = this.textSlotNode
+      if (textNode && this.getTextSlotHost() === parent) {
+        return textNode
       }
 
-      this.layoutNodesByParent.delete(mappedParent)
-      this.layoutNodesByParent.set(parent, layoutNode)
+      return undefined
+    }
+
+    const layoutNode = this.layoutSlotNode
+    if (layoutNode?.parent === parent) {
       return layoutNode
     }
-  }
-
-  private takeReusableTextNode(parent: BaseRenderable): TextSlotRenderable | undefined {
-    for (const [mappedParent, textNode] of this.textNodesByParent) {
-      if (textNode.parent) {
-        continue
-      }
-
-      this.textNodesByParent.delete(mappedParent)
-      this.textNodesByParent.set(parent, textNode)
-      return textNode
-    }
-  }
-
-  private takeReusableLayoutNode(parent: BaseRenderable): LayoutSlotRenderable | undefined {
-    for (const [mappedParent, layoutNode] of this.layoutNodesByParent) {
-      if (layoutNode.parent) {
-        continue
-      }
-
-      if (!layoutNode.isCompatibleWith(parent)) {
-        continue
-      }
-
-      this.layoutNodesByParent.delete(mappedParent)
-      this.layoutNodesByParent.set(parent, layoutNode)
-      return layoutNode
-    }
-  }
-
-  private disposeDetachedTextNodes(): void {
-    for (const [parent, textNode] of this.textNodesByParent) {
-      if (textNode.parent) {
-        continue
-      }
-
-      this.textNodesByParent.delete(parent)
-      textNode.disposeWithoutSlotCascade()
-    }
-  }
-
-  private disposeDetachedIncompatibleLayoutNodes(parent: BaseRenderable): void {
-    for (const [mappedParent, layoutNode] of this.layoutNodesByParent) {
-      if (layoutNode.parent || layoutNode.isCompatibleWith(parent)) {
-        continue
-      }
-
-      this.layoutNodesByParent.delete(mappedParent)
-      layoutNode.disposeWithoutSlotCascade()
-    }
-  }
-
-  // A slot can have multiple placeholder children attached transiently while a
-  // move is in flight. Portal host tracking relies on `slot.parent` pointing at
-  // one of the still-live hosts, not necessarily the most recently inserted one.
-  private getAttachedSlotParent(excludedNode?: BaseRenderable): BaseRenderable | null {
-    for (const textNode of this.textNodesByParent.values()) {
-      if (textNode !== excludedNode && textNode.parent) {
-        return textNode.parent
-      }
-    }
-
-    for (const layoutNode of this.layoutNodesByParent.values()) {
-      if (layoutNode !== excludedNode && layoutNode.parent) {
-        return layoutNode.parent
-      }
-    }
-
-    return null
-  }
-
-  private hasOtherAttachedSlotChildren(excludedNode: BaseRenderable): boolean {
-    return this.getAttachedSlotParent(excludedNode) !== null
   }
 
   getSlotChild(parent: BaseRenderable) {
+    this.detachAttachedSlotChildrenExcept(parent)
+    this.parent = parent
+
     if (this.isTextSlotParent(parent)) {
-      const existingTextNode = this.getTextNodeForParent(parent)
-      if (existingTextNode) {
-        return existingTextNode
-      }
-
-      const reusableTextNode = this.takeReusableTextNode(parent)
-      if (reusableTextNode) {
-        return reusableTextNode
-      }
-
-      this.disposeDetachedIncompatibleLayoutNodes(parent)
-
-      const textNode = new TextSlotRenderable(`slot-text-${this.id}-${++this.textNodeCount}`, this)
-      this.textNodesByParent.set(parent, textNode)
-      return textNode
+      this.textSlotNode ??= new TextSlotRenderable(`slot-text-${this.id}-${++this.textNodeCount}`, this)
+      this.textSlotHost = parent
+      return this.textSlotNode
     }
 
-    const existingLayoutNode = this.getLayoutNodeForParent(parent)
-    if (existingLayoutNode) {
-      return existingLayoutNode
+    if (this.layoutSlotNode && !this.layoutSlotNode.isCompatibleWith(parent)) {
+      this.disposeLayoutNode()
     }
 
-    const reusableLayoutNode = this.takeReusableLayoutNode(parent)
-    if (reusableLayoutNode) {
-      return reusableLayoutNode
-    }
-
-    this.disposeDetachedTextNodes()
-    this.disposeDetachedIncompatibleLayoutNodes(parent)
-
-    const layoutNode = new LayoutSlotRenderable(`slot-layout-${this.id}-${++this.layoutNodeCount}`, this, parent)
-    this.layoutNodesByParent.set(parent, layoutNode)
-    return layoutNode
+    this.layoutSlotNode ??= new LayoutSlotRenderable(`slot-layout-${this.id}-${++this.layoutNodeCount}`, this, parent)
+    return this.layoutSlotNode
   }
 
   getSlotChildForRemoval(parent: BaseRenderable): BaseRenderable | undefined {
-    if (this.isTextSlotParent(parent)) {
-      return this.getTextNodeForParent(parent)
+    if (this.parent !== parent) {
+      return undefined
     }
 
-    return this.getLayoutNodeForParent(parent)
+    return this.getAttachedSlotChildForParent(parent)
   }
 
   didRemoveSlotChild(parent: BaseRenderable, child: BaseRenderable): void {
-    const hasOtherAttachedSlotChildren = this.hasOtherAttachedSlotChildren(child)
-
-    if (
-      hasOtherAttachedSlotChildren &&
-      child instanceof TextSlotRenderable &&
-      this.getTextNodeForParent(parent) === child
-    ) {
-      this.textNodesByParent.delete(parent)
-      child.disposeWithoutSlotCascade()
-    }
-
-    if (
-      hasOtherAttachedSlotChildren &&
-      child instanceof LayoutSlotRenderable &&
-      this.getLayoutNodeForParent(parent) === child
-    ) {
-      this.layoutNodesByParent.delete(parent)
-      child.disposeWithoutSlotCascade()
-    }
-
-    if (this.parent === parent) {
-      this.parent = this.getAttachedSlotParent(child)
+    if (this.parent === parent && (child === this.textSlotNode || child === this.layoutSlotNode)) {
+      this.parent = null
     }
   }
 
@@ -378,16 +294,13 @@ export class SlotRenderable extends SlotBaseRenderable {
     }
     this.destroyed = true
 
-    const layoutNodes = new Set(this.layoutNodesByParent.values())
-    this.layoutNodesByParent.clear()
-    for (const layoutNode of layoutNodes) {
-      layoutNode.destroy()
-    }
+    const layoutNode = this.layoutSlotNode
+    this.layoutSlotNode = undefined
+    layoutNode?.destroy()
 
-    const textNodes = new Set(this.textNodesByParent.values())
-    this.textNodesByParent.clear()
-    for (const textNode of textNodes) {
-      textNode.destroy()
-    }
+    const textNode = this.textSlotNode
+    this.textSlotNode = undefined
+    this.textSlotHost = undefined
+    textNode?.destroy()
   }
 }
