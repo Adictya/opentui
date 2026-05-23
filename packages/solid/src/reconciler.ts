@@ -67,12 +67,11 @@ function _insertNode(parent: DomNode, node: DomNode, anchor?: DomNode): void {
   )
 
   if (node instanceof SlotRenderable) {
-    node.parent = parent
     node = node.getSlotChild(parent)
   }
 
   if (anchor && anchor instanceof SlotRenderable) {
-    anchor = anchor.getSlotChild(parent)
+    anchor = anchor.getSlotChildForRemoval(parent)
   }
 
   if (isTextNodeRenderable(node)) {

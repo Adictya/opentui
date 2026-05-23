@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { BoxRenderable, Yoga } from "@opentui/core"
+import { BoxRenderable, TextRenderable, Yoga } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
 import { batch, createRoot, createSignal } from "solid-js"
 import { createSlotNode, insert } from "../index.js"
@@ -122,7 +122,7 @@ describe("slot placeholder moves", () => {
     }
   })
 
-  it("promotes slot.parent back to another attached host when the newest placeholder is removed", async () => {
+  it("detaches the previous placeholder when inserted into a new parent", async () => {
     const setup = await createTestRenderer({ width: 40, height: 10 })
     const parentA = new BoxRenderable(setup.renderer, {
       id: "slot-parent-host-a",
@@ -137,26 +137,72 @@ describe("slot placeholder moves", () => {
 
     setup.renderer.root.add(parentA)
     setup.renderer.root.add(parentB)
+    assignDistinctLayoutConstructor(parentA)
+    assignDistinctLayoutConstructor(parentB)
 
     const slot = createSlotNode()
 
     try {
-      slot.parent = parentA
       const childA = slot.getSlotChild(parentA)
       parentA.add(childA)
 
-      slot.parent = parentB
       const childB = slot.getSlotChild(parentB)
       parentB.add(childB)
 
       expect(slot.parent).toBe(parentB)
+      expect(parentA.getChildren()).toHaveLength(0)
+      expect(childA.parent).toBe(null)
+      expect(parentB.getChildren()[0]).toBe(childB)
+      expect(slot.getSlotChildForRemoval(parentA)).toBeUndefined()
+      expect(slot.getSlotChildForRemoval(parentB)).toBe(childB)
+
+      slot.didRemoveSlotChild(parentA, childA)
+
+      expect(slot.parent).toBe(parentB)
+      expect(parentB.getChildren()[0]).toBe(childB)
 
       parentB.remove(childB.id)
       slot.didRemoveSlotChild(parentB, childB)
 
-      expect(slot.parent).toBe(parentA)
-      expect(parentA.getChildren()[0]).toBe(childA)
+      expect(slot.parent).toBe(null)
       expect(parentB.getChildren()).toHaveLength(0)
+    } finally {
+      setup.renderer.destroy()
+    }
+  })
+
+  it("detaches text placeholders from the previous text host", async () => {
+    const setup = await createTestRenderer({ width: 40, height: 10 })
+    const parentA = new TextRenderable(setup.renderer, {
+      id: "slot-text-host-a",
+    })
+    const parentB = new TextRenderable(setup.renderer, {
+      id: "slot-text-host-b",
+    })
+
+    setup.renderer.root.add(parentA)
+    setup.renderer.root.add(parentB)
+
+    const slot = createSlotNode()
+
+    try {
+      const childA = slot.getSlotChild(parentA)
+      parentA.add(childA)
+
+      const childB = slot.getSlotChild(parentB)
+      parentB.add(childB)
+
+      expect(childB).toBe(childA)
+      expect(slot.parent).toBe(parentB)
+      expect(parentA.getTextChildren()).toHaveLength(0)
+      expect(parentB.getTextChildren()[0]).toBe(childB)
+      expect(slot.getSlotChildForRemoval(parentA)).toBeUndefined()
+      expect(slot.getSlotChildForRemoval(parentB)).toBe(childB)
+
+      slot.didRemoveSlotChild(parentA, childA)
+
+      expect(slot.parent).toBe(parentB)
+      expect(parentB.getTextChildren()[0]).toBe(childB)
     } finally {
       setup.renderer.destroy()
     }
